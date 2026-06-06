@@ -1,11 +1,15 @@
 import numpy as np
 
+beta = 0.9
+
 # hidden layer
 class DenseLayer:
     def __init__(self, input_dim, output_dim):
         # initialise weights and biases
         self.W = np.random.randn(input_dim, output_dim) * np.sqrt(2.0 / input_dim)
         self.b = np.zeros((1, output_dim))
+        self.v_W = np.zeros(self.W.shape)
+        self.v_b = np.zeros(self.b.shape)
 
     def forward(self, X):
         # forward propagation
@@ -47,18 +51,53 @@ class SoftmaxLayer:
         # the loss gradient goes through softmax without effect
         return dA
 
-# loss calculator
+# sigmoid activation layer
+class SigmoidLayer:
+    # basic sigmoid function output is between -1 and 1
+    def sigmoid(self, x):
+        return 1 / (1 + np.exp(-x))
+
+    def forward(self, x):
+        self.x = x
+        return self.sigmoid(x)
+    
+    def backward(self, loss_gradient):
+        # calculate derivative
+        return self.sigmoid(self.x) * (1 - self.sigmoid(self.x)) * loss_gradient
+
+# cross entropy loss calculator
 class CrossEntropyLoss:
-    def forward(self, Y_pred, Y_true):
+    def forward(self, y_pred, y_true):
         # calculate the error between the predictions and true targets
-        self.Y_pred = Y_pred
-        self.Y_true = Y_true
-        loss = -np.sum(Y_true * np.log(Y_pred + 1e-15)) / Y_pred.shape[0]
+        self.y_pred = y_pred
+        self.y_true = y_true
+        loss = -np.sum(y_true * np.log(y_pred + 1e-15)) / y_pred.shape[0]
         return loss
     
     def backward(self):
         # calculate loss gradient
-        return (self.Y_pred - self.Y_true) / self.Y_pred.shape[0]
+        return (self.y_pred - self.y_true) / self.y_pred.shape[0]
+
+# binary cross entropy loss calculator
+class BCELoss:
+    def forward(self, y_pred, y_true):
+        self.y_pred = np.clip(y_pred, 1e-15, 1 - 1e-15)
+        self.y_true = y_true
+        return -np.mean(self.y_true * np.log(self.y_pred) + (1 - self.y_true) * np.log(1 - self.y_pred))
+
+    def backward(self):
+        return (1 / self.y_pred.shape[0]) * (self.y_pred - self.y_true) / (self.y_pred * (1 - self.y_pred) + 1e-15)
+
+# mean square error loss calculator
+class MSELoss:
+    def forward(self, y_pred, y_true):
+        self.y_pred = y_pred
+        self.y_true = y_true
+        return np.mean((y_pred - y_true) ** 2)
+        
+    def backward(self):
+        N = self.y_pred.shape[0]
+        return (2 / N) * (self.y_pred - self.y_true)
 
 # main neural network class
 class NeuralNetwork:
@@ -81,8 +120,11 @@ class NeuralNetwork:
         for layer in self.layers:
             # check if layer is a hidden layer and not activation layer
             if hasattr(layer, 'W'):
-                layer.W -= lr * layer.dW
-                layer.b -= lr * layer.db
+                # momentum optization
+                layer.v_W = beta * layer.v_W + (1 - beta) * layer.dW
+                layer.W -= lr * layer.v_W
+                layer.v_b = beta * layer.v_b + (1 - beta) * layer.db
+                layer.b -= lr * layer.v_b
 
 # accuracy calculator
 def accuracy(Y_pred, Y_true):
