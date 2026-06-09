@@ -20,8 +20,9 @@ class DenseLayer:
     def backward(self, dZ):
         # backward propagation
         # get the loss gradient and use chain rule to find the parameter gradients
-        dW = np.dot(self.X.T, dZ)
-        db = np.sum(dZ, axis=0, keepdims=True)
+        n = self.X.shape[0]
+        dW = np.dot(self.X.T, dZ) / n
+        db = np.sum(dZ, axis=0, keepdims=True) / n
         dX = np.dot(dZ, self.W.T)
         self.dW = dW
         self.db = db
@@ -53,7 +54,7 @@ class SoftmaxLayer:
 
 # sigmoid activation layer
 class SigmoidLayer:
-    # basic sigmoid function output is between -1 and 1
+    # basic sigmoid function output is between 0 and 1
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
 
